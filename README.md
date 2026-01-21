@@ -1,4 +1,4 @@
-# Correction of 3D annotated bounding boxes
+# Correcting and Quantifying Systematic Errors in 3D Box Annotations for Autonomous Driving
 
 Official code of [Correcting and Quantifying Systematic Errors in 3D Box Annotations for
 Autonomous Driving](https://arxiv.org/abs/2601.14038), accepted at The IEEE/CVF Winter Conference on Applications of Computer Vision 2026, by Justo Miro, A. et al.
