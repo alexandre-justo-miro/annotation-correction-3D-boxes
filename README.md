@@ -85,11 +85,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use our code in your research, please consider citing:
 
 ```
-@inproceedings{annotationcorrection3dboxes2026,
-  title={Correcting and {Quantifying} {Systematic} {Errors} in {3D} {Box} {Annotations} for
-{Autonomous} {Driving}},
-  author={Justo Miro, Alexandre and af Klinteberg, Ludvig and Timus, Bogdan and Asefaw, Aron and Khoche, Ajinkya and Gustafsson, Thomas and Mansouri, Sina Sharif and Daneshtalab, Masoud},
-  booktitle={The IEEE/CVF Winter Conference on Applications of Computer Vision},
-  year={2026}
+@InProceedings{JustoMiro_2026_WACV,
+    author    = {Justo Miro, Alexandre and af Klinteberg, Ludvig and Timus, Bogdan and Asefaw, Aron and Khoche, Ajinkya and Gustafsson, Thomas and Mansouri, Sina Sharif and Daneshtalab, Masoud},
+    title     = {Correcting and {Quantifying} {Systematic} {Errors} in {3D} {Box} {Annotations} for {Autonomous} {Driving}},
+    booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+    month     = {March},
+    year      = {2026},
+    pages     = {6724-6732}
 }
 ```
