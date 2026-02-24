@@ -5,7 +5,8 @@ import glob
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-import os.path
+from os import listdir, makedirs
+from os.path import basename, join, pardir
 from pandas import concat, cut, read_csv
 from pytransform3d.transformations import invert_transform
 import re
@@ -34,9 +35,9 @@ def get_data_per_track_struct():
 
 
 def write_to_csv(data, dataset_name: str, sequence_name: str, label: str, track_id: str):
-    if not os.path.exists("results"):
-        os.mkdir("results")
-    csv_file = os.path.join("results", f'{dataset_name}_{sequence_name}_{label}_{track_id}.csv')
+    # Make output directories if they do not exist (otherwise do not do anything)
+    makedirs(join(pardir, "out", "evaluations", dataset_name), exist_ok=True)
+    csv_file = join(pardir, "out", "evaluations", dataset_name, f'{sequence_name}_{label}_{track_id}.csv')
     with open(csv_file, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(data.keys())
@@ -231,7 +232,7 @@ def plot_error_grouped_per_interval(df, nr_sequences: int, what_to_group_by: str
     plt.tight_layout()
     plt.show()
 
-    stats.to_csv(os.path.join("results", f"{dataset_name}_aggregated_{nr_sequences}_sequences_stats_grouped_by_{what_to_group_by}.csv"), sep=";", index=False)
+    stats.to_csv(join(pardir, "out", "evaluations", dataset_name, f"aggregated_{nr_sequences}_sequences_stats_grouped_by_{what_to_group_by}.csv"), sep=";", index=False)
 
 
 def plot_distributions_and_bar_plots(sequence_name_list, dataset_name: str):
@@ -241,9 +242,9 @@ def plot_distributions_and_bar_plots(sequence_name_list, dataset_name: str):
     # Aggregate all files to be loaded
     files = list()
     for sequence_dir in sequence_name_list:
-        pattern = f"{dataset_name}_{os.path.basename(sequence_dir)}_corrected_.*.csv"
-        for file in os.listdir("results"):
-            if re.match(pattern, file): files.append(os.path.join("results", file))
+        pattern = f"{basename(sequence_dir)}_corrected_.*.csv"
+        for file in listdir(join(pardir, "out", "evaluations", dataset_name)):
+            if re.match(pattern, file): files.append(join(pardir, "out", "evaluations", dataset_name, file))
 
     # Put all data in a common dataframe
     df = None
@@ -263,7 +264,7 @@ def plot_distributions_and_bar_plots(sequence_name_list, dataset_name: str):
         # Dump histograms to plot in LaTeX
         hist, bin_edges = np.histogram(df[label], bins=200, density=True)
         # Write histogram data to CSV
-        with open(os.path.join("results", f"histogram_{dataset_name}_{label}.csv"), mode='w', newline='') as file:
+        with open(join(pardir, "out", "evaluations", dataset_name, f"histogram_{label}.csv"), mode='w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['BinStart', 'BinEnd', 'Count'])
             for i in range(len(hist)):
@@ -280,7 +281,7 @@ def plot_distributions_and_bar_plots(sequence_name_list, dataset_name: str):
     plot_error_grouped_per_interval(df, nr_sequences, "DistanceToEgo", "m", bins_distance, dataset_name)
 
     # Dump to a common file for plotting in LaTeX
-    df.to_csv(os.path.join("results", f"{dataset_name}_aggregated_{len(sequence_name_list)}_sequences.csv"), sep=";", index=False)
+    df.to_csv(join(pardir, "out", "evaluations", dataset_name, f"aggregated_{len(sequence_name_list)}_sequences.csv"), sep=";", index=False)
 
 
 def plot_for_track(dataset_name: str, sequence_name: str, track_id: str):
@@ -297,7 +298,7 @@ def plot_for_track(dataset_name: str, sequence_name: str, track_id: str):
     fig_nr_points, axes_nr_points = plt.subplots(nrows=1, ncols=1, figsize=(12, 6))
     x_label, y_label = "Time", "NrPointsTargetMC"
     for label in ("original", "corrected"):
-        path_to_csv = os.path.join("results", f'{dataset_name}_{sequence_name}_{label}_{track_id}.csv')
+        path_to_csv = join(pardir, "out", "evaluations", dataset_name, f'{sequence_name}_{label}_{track_id}.csv')
         df = read_csv(path_to_csv)
         df.plot(ax=axes_nr_points, x=x_label, y=y_label, label=label)
         # total_points_ego_mc = np.sum(data['NrPointsEgoMC'])
@@ -312,7 +313,7 @@ def plot_for_track(dataset_name: str, sequence_name: str, track_id: str):
     fig_pose, axes_pose = plt.subplots(nrows=3, ncols=1, figsize=(12, 6))
     x_label = "Time"
     for label in ("original", "corrected"):
-        path_to_csv = os.path.join("results", f'{dataset_name}_{sequence_name}_{label}_{track_id}.csv')
+        path_to_csv = join(pardir, "out", "evaluations", dataset_name, f'{sequence_name}_{label}_{track_id}.csv')
         df = read_csv(path_to_csv)
         for idx, y_label in enumerate(("LocationX", "LocationY", "Heading")):
             df.plot(ax=axes_pose[idx], x=x_label, y=y_label, label=label)
@@ -324,7 +325,7 @@ def plot_for_track(dataset_name: str, sequence_name: str, track_id: str):
     fig_dynamics, axes_dynamics = plt.subplots(nrows=3, ncols=1, figsize=(12, 6))
     x_label = "Time"
     label = "corrected"
-    path_to_csv = os.path.join("results", f'{dataset_name}_{sequence_name}_{label}_{track_id}.csv')
+    path_to_csv = join(pardir, "out", "evaluations", dataset_name, f'{sequence_name}_{label}_{track_id}.csv')
     df = read_csv(path_to_csv)
     for idx, y_label in enumerate(("Speed", "HeadingRate", "Acceleration")):
         df.plot(ax=axes_dynamics[idx], x=x_label, y=y_label, label=label)
@@ -348,10 +349,10 @@ def display_metrics(sequence_name_list, print_info_per_track: bool, dataset_name
 
     for sequence_path in sequence_name_list:
 
-        sequence_name = os.path.basename(sequence_path)
+        sequence_name = basename(sequence_path)
 
-        all_csv_files_original = sorted(glob.glob(f"{dataset_name}_{sequence_name}_original_*.csv", root_dir="results"))
-        all_csv_files_corrected = sorted(glob.glob(f"{dataset_name}_{sequence_name}_corrected_*.csv", root_dir="results"))
+        all_csv_files_original = sorted(glob.glob(f"{sequence_name}_original_*.csv", root_dir=join(pardir, "out", "evaluations", dataset_name)))
+        all_csv_files_corrected = sorted(glob.glob(f"{sequence_name}_corrected_*.csv", root_dir=join(pardir, "out", "evaluations", dataset_name)))
 
         sequence_wide_points_original = 0
         sequence_wide_points_corrected = 0
@@ -362,8 +363,8 @@ def display_metrics(sequence_name_list, print_info_per_track: bool, dataset_name
 
             track_id = csv_file_original[-40:-4]
 
-            path_to_csv_original = os.path.join("results", csv_file_original)
-            path_to_csv_corrected = os.path.join("results", csv_file_corrected)
+            path_to_csv_original = join(pardir, "out", "evaluations", dataset_name, csv_file_original)
+            path_to_csv_corrected = join(pardir, "out", "evaluations", dataset_name, csv_file_corrected)
 
             df_original = read_csv(path_to_csv_original)
             df_corrected = read_csv(path_to_csv_corrected)

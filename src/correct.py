@@ -1,6 +1,8 @@
 from box_types import InternalBox
 from constants import CTRA_LOW_YAW_RATE_THRESHOLD, EGO_FRAME_NAME, GLOBAL_FRAME_NAME, LOW_SPEED_THRESHOLD
 import numpy as np
+from os import makedirs
+from os.path import join, pardir
 import pandas as pd
 from pymoo.algorithms.soo.nonconvex.pattern import PatternSearch
 from pymoo.core.problem import Problem
@@ -524,6 +526,9 @@ def run_optimization(data_loader, verbose: bool) -> None:
     :param verbose: Whether to output detailed information about the optimization progress (True) or not (False).
     :return:
     """
+    # Make output directories if they do not exist (otherwise do not do anything)
+    makedirs(join(pardir, "out", "corrections", data_loader.get_dataset_name()), exist_ok=True)
+
     # Define termination criteria
     termination = DefaultMultiObjectiveTermination(xtol=1e-8, cvtol=1e-6, ftol=0.0025, period=30, n_max_gen=1e5, n_max_evals=1e6)
 

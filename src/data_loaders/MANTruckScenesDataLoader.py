@@ -32,8 +32,8 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         self.first_sample_token = self.scene["first_sample_token"]
         self.first_sample = self.truck_scenes.get("sample", self.first_sample_token)
 
-        self.path_to_corrected_annotations = os.path.join(
-            self.truck_scenes.dataroot, self.truck_scenes.version, f"sample_annotation-corrected-{scene_name}.feather")
+        self.path_to_corrected_annotations = os.path.abspath(os.path.join(
+            os.path.pardir, "out", "corrections", self.get_dataset_name(), f"{scene_name}.feather"))
 
         self.first_lidar_tokens, self.first_radar_tokens, self.first_camera_tokens = self._get_first_sensor_tokens()
 

@@ -18,7 +18,10 @@ class Argoverse2DataLoader(BaseDataLoader):
             verbose: bool = True):
         super().__init__(path_to_sequence, need_transforms, need_annotations, need_sensor_data, verbose)
 
-        self.path_to_corrected_annotations = os.path.join(path_to_sequence, "annotations-corrected.feather")
+        split_dir = os.path.basename(os.path.dirname(path_to_sequence))
+        sequence_dir = os.path.basename(path_to_sequence)
+        self.path_to_corrected_annotations = os.path.abspath(os.path.join(
+            os.path.pardir, "out", "corrections", self.get_dataset_name(), f"{split_dir}-{sequence_dir}.feather"))
 
         self.load_all()
 

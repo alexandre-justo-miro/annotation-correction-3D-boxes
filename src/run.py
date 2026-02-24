@@ -58,18 +58,13 @@ def main():
                         help="Trigger the optimization process to correct 3D bounding box annotations. All selected "
                              "sequences of the selected dataset will undergo optimization, one by one. For each "
                              "sequence, the resulting annotations will then be stored at "
-                             "<datasets_directory>/argoverse2/<split_name>/<sequence_name>/annotations-corrected."
-                             "feather"
-                             " or "
-                             "<datasets_directory>/man-truckscenes/v1.0-mini/sample_annotation-corrected-<sequence_name"
-                             ">.feather"
-                             ", depending on the dataset.",
+                             "out/corrections/<dataset-name>/<sequence-name>.feather.",
                         action="store_true")
     tasks.add_argument("-e", "--evaluate",
                         help="Evaluate the quality of the corrected 3D bounding box annotations. All selected "
                              "sequences of the selected dataset will undergo calculation of metrics, one by one. Some "
-                             "intermediate files will be stored at results/, and the metrics will be displayed in the "
-                             "form of text in the terminal and plots.",
+                             "intermediate files will be stored at out/evaluations/, and the metrics will be displayed "
+                             "in the form of text in the terminal and plots.",
                         action="store_true")
     parser.add_argument("-q", "--quiet",
                         help="Optional: Whether to turn off verbose mode.",
