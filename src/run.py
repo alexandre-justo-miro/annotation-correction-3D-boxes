@@ -5,6 +5,7 @@ from data_loaders.Argoverse2DataLoader import Argoverse2DataLoader as Argoverse2
 from data_loaders.MANTruckScenesDataLoader import MANTruckScenesDataLoader as MANTruckScenes
 from os.path import join
 from pathlib import Path
+from time import time
 from tqdm import tqdm
 
 _argoverse2_sequences = (
@@ -98,8 +99,28 @@ def main():
         log_sequence(data_loader(path_to_sequence=sequences[0], verbose=verbose), args.target_motion_compensation)
 
     if args.correct:
+        execution_times = list()
+        data_loading_times = list()
+        optimization_times = list()
         from correct import run_optimization
-        for seq in tqdm(sequences, desc="Optimizing for one sequence at a time..."): run_optimization(data_loader(path_to_sequence=seq, verbose=verbose), verbose=verbose)
+        for seq in tqdm(sequences, desc="Optimizing for one sequence at a time..."):
+
+            start_time = time()
+
+            dl = data_loader(path_to_sequence=seq, verbose=verbose)
+
+            data_loading_time = time()
+
+            run_optimization(dl, verbose=verbose)
+
+            optimization_time = time()
+
+            data_loading_times.append(data_loading_time - start_time)
+            optimization_times.append(optimization_time - data_loading_time)
+            execution_times.append(optimization_time - start_time)
+
+        print(data_loading_times, optimization_times, execution_times)
+
 
     if args.evaluate:
         from evaluate import calculate_metrics, display_metrics, plot_distributions_and_bar_plots
