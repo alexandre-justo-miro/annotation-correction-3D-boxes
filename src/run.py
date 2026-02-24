@@ -72,11 +72,14 @@ def main():
                              "form of text in the terminal and plots.",
                         action="store_true")
     parser.add_argument("-q", "--quiet",
-                        help="Optional: Whether to turn off verbose mode.",
+                        help="Optional: Turn off verbose mode.",
                         action="store_true")
     parser.add_argument("-b", "--base-directory",
                         type=str,
                         help="Optional: Base directory where the datasets are. Defaults to '~/datasets/'.")
+    parser.add_argument("-tmc", "--target-motion-compensation",
+                        help="Optional: Apply target motion compensation to the LiDAR points before visualizing. Only valid with -v/--visualize.",
+                        action="store_true")
 
     args = parser.parse_args()
 
@@ -92,7 +95,7 @@ def main():
     if args.visualize:
         if len(sequences) != 1: print("WARNING: Visualization can be done for only one sequence at a time, but multiple sequences were sent. Defaulting to the first sequence.")
         from visualize import log_sequence
-        log_sequence(data_loader(path_to_sequence=sequences[0], verbose=verbose))
+        log_sequence(data_loader(path_to_sequence=sequences[0], verbose=verbose), args.target_motion_compensation)
 
     if args.correct:
         from correct import run_optimization

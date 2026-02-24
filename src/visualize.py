@@ -276,7 +276,7 @@ def log_annotations(data_loader, first_ego_translation, file_suffix: str = "") -
         )
 
 
-def log_sequence(data_loader) -> None:
+def log_sequence(data_loader, do_target_motion_compensation: bool) -> None:
 
     sensor_space_views = [
         rr.blueprint.Spatial2DView(
@@ -311,6 +311,6 @@ def log_sequence(data_loader) -> None:
     for file_suffix in ("", "-corrected"):
         log_annotations(data_loader, first_ego_translation, file_suffix)
 
-    log_lidar(data_loader, "-corrected")
+    log_lidar(data_loader, "-corrected" if do_target_motion_compensation else "")
     # TODO: find out why rerun crashes after logging a few camera data
     # log_cameras(data_loader)

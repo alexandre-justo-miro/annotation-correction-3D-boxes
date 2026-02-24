@@ -491,7 +491,7 @@ def solve_for_all_tracks(data_loader, slack_states, termination: DefaultMultiObj
 
         # At least two boxes are needed for the CTRA motion model
         if not (np.shape(timestamps)[0] > 1):
-            print(f"Track {track_id} does not have at least two boxes, skipping.")
+            if verbose: print(f"Track {track_id} does not have at least two boxes, skipping.")
             continue
 
         # Do not optimize if the track speed is low, as lidar distortion will barely happen there. This allows to skip
@@ -499,7 +499,7 @@ def solve_for_all_tracks(data_loader, slack_states, termination: DefaultMultiObj
         speed = x0.reshape(NR_STATES_OPTIMIZATION, -1, order='F')[3, :]
         low_speed = np.max(np.abs(speed)) < LOW_SPEED_THRESHOLD
         if low_speed:
-            print(f"Track {track_id} has a highest speed lower than {LOW_SPEED_THRESHOLD} m/s, skipping.")
+            if verbose: print(f"Track {track_id} has a highest speed lower than {LOW_SPEED_THRESHOLD} m/s, skipping.")
             continue
 
         problem = AnnotationCorrection(
