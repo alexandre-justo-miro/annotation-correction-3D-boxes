@@ -18,9 +18,9 @@ For full results and details, see [our paper](https://arxiv.org/abs/2601.14038).
 
 ## Requirements
 
-Python >=3.9 and <=3.13.
+Python 3.9 or 3.12.
 
-Access to the 10 selected sequences of the [Argoverse 2 sensor dataset](https://www.argoverse.org/av2.html#sensor-link) and/or the [MAN TruckScenes mini dataset](https://brandportal.man/d/QSf8mPdU5Hgj/downloads#/-/dataset/download-mini), by default located under `~/datasets`. The folder structure should be as follows:
+Access to the 10 selected sequences of the [Argoverse 2 sensor dataset](https://www.argoverse.org/av2.html#sensor-link), and/or the [MAN TruckScenes mini dataset](https://brandportal.man/d/QSf8mPdU5Hgj/downloads#/-/dataset/download-mini), and/or the [nuScenes mini dataset](TODO), by default located under `~/datasets`. The folder structure should be as follows:
 ```
 ─── <home directory>
     └── datasets
@@ -38,6 +38,10 @@ Access to the 10 selected sequences of the [Argoverse 2 sensor dataset](https://
                 └── 9a448a80-0e9a-3bf0-90f3-21750dfef55a
                 └── d5d6f11c-3026-3e0e-9d67-c111233e22de
         └── man-truckscenes
+            └── samples
+            └── sweeps
+            └── v1.0-mini
+        └── nuScenes
             └── samples
             └── sweeps
             └── v1.0-mini

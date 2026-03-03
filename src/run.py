@@ -3,6 +3,7 @@
 import argparse
 from data_loaders.Argoverse2DataLoader import Argoverse2DataLoader as Argoverse2
 from data_loaders.MANTruckScenesDataLoader import MANTruckScenesDataLoader as MANTruckScenes
+from data_loaders.NuScenesDataLoader import NuScenesDataLoader as NuScenes
 from os.path import join
 from pathlib import Path
 from tqdm import tqdm
@@ -33,6 +34,19 @@ _man_truckscenes_sequences = (
     "scene-fb64d203d417452f830ca73efed80c41-11"
 )
 
+_nuscenes_sequences = (
+    "scene-0061",
+    "scene-0103",
+    "scene-0553",
+    "scene-0655",
+    "scene-0757",
+    "scene-0796",
+    "scene-0916",
+    "scene-1077",
+    "scene-1094",
+    "scene-1100"
+)
+
 
 def main():
     parser = argparse.ArgumentParser(description="annotation-correction-3D-boxes command-line interface")
@@ -40,7 +54,7 @@ def main():
     parser.add_argument("-d", "--dataset",
                         type=str,
                         help="Required: Which dataset to use for the experiments. Currently supported options: "
-                        "'argoverse2', 'man-truckscenes'.",
+                        "'argoverse2', 'man-truckscenes', 'nuscenes'.",
                         required=True)
     parser.add_argument("-s", "--sequences",
                         type=str,
@@ -78,10 +92,10 @@ def main():
     verbose = False if args.quiet else True
     base_dir = args.base_directory if args.base_directory else join(str(Path.home()), "datasets")
 
-    data_loader = Argoverse2 if args.dataset == "argoverse2" else MANTruckScenes if args.dataset == "man-truckscenes" else None
-    if data_loader is None: raise ValueError(f"Unsupported dataset {args.dataset}. Supported datasets are 'argoverse2' and 'man-truckscenes'.")
+    data_loader = Argoverse2 if args.dataset == "argoverse2" else MANTruckScenes if args.dataset == "man-truckscenes" else NuScenes if args.dataset == "nuscenes" else None
+    if data_loader is None: raise ValueError(f"Unsupported dataset {args.dataset}. Supported datasets are 'argoverse2', 'man-truckscenes', and 'nuscenes'.")
 
-    _seqs = args.sequences.split(",") if args.sequences else _argoverse2_sequences if args.dataset == 'argoverse2' else _man_truckscenes_sequences if args.dataset == 'man-truckscenes' else None
+    _seqs = args.sequences.split(",") if args.sequences else _argoverse2_sequences if args.dataset == 'argoverse2' else _man_truckscenes_sequences if args.dataset == 'man-truckscenes' else _nuscenes_sequences if args.dataset == 'nuscenes' else None
     sequences = [join(base_dir, args.dataset, seq) for seq in _seqs]
 
     if args.visualize:

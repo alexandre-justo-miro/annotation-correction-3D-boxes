@@ -1,17 +1,17 @@
 from constants import EGO_FRAME_NAME, GLOBAL_FRAME_NAME
 from data_loaders.BaseDataLoader import BaseDataLoader
 import numpy as np
+from nuscenes import NuScenes
+from nuscenes.utils.data_classes import LidarPointCloud
 import os.path
 import pandas as pd
 from PIL import Image
 from pytransform3d.transform_manager import NumpyTimeseriesTransform, StaticTransform, TemporalTransformManager
 from tqdm import tqdm
 from transformation_utils import get_pq, get_transform_from_pq, transform_point_cloud
-from truckscenes import TruckScenes
-from truckscenes.utils.data_classes import LidarPointCloud
 
 
-class MANTruckScenesDataLoader(BaseDataLoader):
+class NuScenesDataLoader(BaseDataLoader):
     def __init__(
             self,
             path_to_sequence,
@@ -27,10 +27,10 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         root_directory = os.path.dirname(self.path_to_sequence)
         scene_name = os.path.basename(self.path_to_sequence)
 
-        self.truck_scenes = TruckScenes(dataset_version, root_directory, False)
-        self.scene = next(s for s in self.truck_scenes.scene if s["name"] == scene_name)
+        self.nu_scenes = NuScenes(dataset_version, root_directory, verbose=verbose)
+        self.scene = next(s for s in self.nu_scenes.scene if s["name"] == scene_name)
         self.first_sample_token = self.scene["first_sample_token"]
-        self.first_sample = self.truck_scenes.get("sample", self.first_sample_token)
+        self.first_sample = self.nu_scenes.get("sample", self.first_sample_token)
 
         self.path_to_corrected_annotations = os.path.abspath(os.path.join(
             os.path.pardir, "out", "corrections", self.get_dataset_name(), f"{scene_name}.feather"))
@@ -39,7 +39,7 @@ class MANTruckScenesDataLoader(BaseDataLoader):
 
         # Some traits of this dataset
         self.annotations_reference_frame = GLOBAL_FRAME_NAME
-        self.sensor_data_reference_frame = EGO_FRAME_NAME
+        self.sensor_data_reference_frame = EGO_FRAME_NAME  # Lidar comes in sensor frame, but we will transform it to ego while loading.
         self.sensor_data_ego_motion_compensated = apply_ego_motion_compensation
         self.annotation_frequency_hz = 2.0
 
@@ -47,7 +47,7 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         self.only_load_key_frames = only_load_key_frames
 
         # Categories that are static or very slow and will therefore not be corrected
-        self.categories_no_correction = (
+        self.categories_no_correction = (  # TODO check which categories actually exist in nuScenes
             "static_object.traffic_sign", "static_object.bicycle_rack",
             "movable_object.debris", "movable_object.trafficcone", "movable_object.pushable_pullable", "movable_object.barrier",
             "vehicle.ego_trailer", "vehicle.trailer", "vehicle.construction",
@@ -57,16 +57,16 @@ class MANTruckScenesDataLoader(BaseDataLoader):
 
         self.load_all()
 
-    def is_man_truckscenes_dataset(self): return True
+    def is_nuscenes_dataset(self): return True
 
-    def get_dataset_name(self): return "man-truckscenes"
+    def get_dataset_name(self): return "nuscenes"
 
     def _get_first_sensor_tokens(self):
         first_lidar_tokens, first_radar_tokens, first_camera_tokens = list(), list(), list()
 
-        # Loop over all 16 sensors (4 cameras, 6 lidar, 6 radar)
+        # Loop over all 12 sensors (6 cameras, 1 lidar, 5 radar)
         for sample_data_token in self.first_sample["data"].values():
-            sample_data = self.truck_scenes.get("sample_data", sample_data_token)
+            sample_data = self.nu_scenes.get("sample_data", sample_data_token)
             if sample_data["sensor_modality"] == "lidar":
                 first_lidar_tokens.append(sample_data_token)
             elif sample_data["sensor_modality"] == "radar":
@@ -91,11 +91,11 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         current_sample_token = self.first_sample_token
         sample_index = 0
         while current_sample_token != "":
-            sample = self.truck_scenes.get("sample", current_sample_token)
+            sample = self.nu_scenes.get("sample", current_sample_token)
 
             ann_tokens = sample["anns"]
             for ann_token in ann_tokens:
-                ann = self.truck_scenes.get("sample_annotation", ann_token)
+                ann = self.nu_scenes.get("sample_annotation", ann_token)
 
                 x, y, z = ann["translation"]
                 qw, qx, qy, qz = ann["rotation"]
@@ -148,7 +148,7 @@ class MANTruckScenesDataLoader(BaseDataLoader):
             # Loop over samples of this lidar
             current_lidar_token = first_lidar_token
             while current_lidar_token != "":
-                sample_data = self.truck_scenes.get("sample_data", current_lidar_token)
+                sample_data = self.nu_scenes.get("sample_data", current_lidar_token)
                 sensor_name = sample_data["channel"]
 
                 # Update loop variable
@@ -159,7 +159,7 @@ class MANTruckScenesDataLoader(BaseDataLoader):
                     continue
 
                 # Load point cloud
-                data_file_path = os.path.join(self.truck_scenes.dataroot, sample_data["filename"])
+                data_file_path = os.path.join(self.nu_scenes.dataroot, sample_data["filename"])
                 point_cloud = LidarPointCloud.from_file(str(data_file_path))
                 points = point_cloud.points.T  # shape after transposing: [N, 4]
 
@@ -167,15 +167,15 @@ class MANTruckScenesDataLoader(BaseDataLoader):
                 transform_point_cloud(points, self.transforms.get_transform(sensor_name, EGO_FRAME_NAME))
 
                 # Get the closest annotation timestamp to do motion compensation to (i.e. sample timestamp)
-                closest_sample = self.truck_scenes.getclosest("sample", sample_data["timestamp"])
-                closest_sample_timestamp_ns = int(closest_sample["timestamp"] * 1e3)
+                # closest_sample = self.nu_scenes.getclosest("sample", sample_data["timestamp"])
+                closest_sample_timestamp_ns = int(sample_data["timestamp"] * 1e3)  # TODO: int(closest_sample["timestamp"] * 1e3)
 
                 # Add sample timestamp and index. This assumes that the lidar samples are in chronological order.
                 if closest_sample_timestamp_ns not in sample_timestamp_ns_to_sample_index:
                     sample_timestamp_ns_to_sample_index[closest_sample_timestamp_ns] = len(sample_timestamp_ns_to_sample_index)
 
                 # Do ego motion compensation if requested
-                if self.sensor_data_ego_motion_compensated:
+                if False: #self.sensor_data_ego_motion_compensated: TODO: isn't the nuScenes data already ego motion compensated?
                     ego_to_global_aggregated = list()
                     iterator = point_cloud.timestamps.flatten().tolist()
                     if self.verbose: iterator = tqdm(iterator, desc=f"Applying ego motion compensation for a sample of {sensor_name}...")
@@ -190,14 +190,14 @@ class MANTruckScenesDataLoader(BaseDataLoader):
                     transform_point_cloud(points, self.transforms.get_transform_at_time(GLOBAL_FRAME_NAME, EGO_FRAME_NAME, closest_sample_timestamp_ns))
 
                 # Store data
-                sensor_data["X"] += points[:, 0].tolist()
+                x_list = points[:, 0].tolist()
+                sensor_data["X"] += x_list
                 sensor_data["Y"] += points[:, 1].tolist()
                 sensor_data["Z"] += points[:, 2].tolist()
-                delta_t = (point_cloud.timestamps.astype(np.int64) - closest_sample_timestamp_ns * 1e-3) * 1e-6
-                delta_t_list = delta_t.flatten().tolist()  # Flatten as the original array is shaped (1, N)
-                sensor_data["deltaT"] += delta_t_list
-                number_points_in_sample = len(delta_t_list)
-                sensor_data["sensor_modality"] += [sample_data["sensor_modality"]] * number_points_in_sample  # TODO: works in nuScenes, not checked here
+                # Create per-point timestamps artificially, as the lidar in nuScenes does not provide them. TODO: Find out the order of points and how the lidar spins
+                sensor_data["deltaT"] += np.linspace(0.0, 1.0/20.0, len(x_list)).tolist()  # nuScenes lidar spins at 20 Hz
+                number_points_in_sample = len(x_list)
+                sensor_data["sensor_modality"] += [sample_data["sensor_modality"]] * number_points_in_sample
                 sensor_data["sensor_index"] += [sensor_name] * number_points_in_sample
                 sensor_data["sample_index"] += [sample_timestamp_ns_to_sample_index[closest_sample_timestamp_ns]] * number_points_in_sample
                 sensor_data["absolute_timestamp_ns"] += [closest_sample_timestamp_ns] * number_points_in_sample
@@ -205,11 +205,13 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         # Loop over cameras
         for first_camera_token in self.first_camera_tokens:
 
+            continue  # TODO: load camera data. For it we need a smart handling of sample timestamps
+
             # Loop over samples of this camera
             current_camera_token = first_camera_token
             while current_camera_token != "":
-                sample_data = self.truck_scenes.get("sample_data", current_camera_token)
-                data_file_path = os.path.join(self.truck_scenes.dataroot, sample_data["filename"])
+                sample_data = self.nu_scenes.get("sample_data", current_camera_token)
+                data_file_path = os.path.join(self.nu_scenes.dataroot, sample_data["filename"])
 
                 # Update loop variable
                 current_camera_token = sample_data["next"]
@@ -219,8 +221,8 @@ class MANTruckScenesDataLoader(BaseDataLoader):
                     continue
 
                 # Get the closest annotation timestamp (i.e. sample timestamp)
-                closest_sample = self.truck_scenes.getclosest("sample", sample_data["timestamp"])
-                sample_timestamp_ns = int(closest_sample["timestamp"] * 1e3)
+                # TODO: closest_sample = self.nu_scenes.getclosest("sample", sample_data["timestamp"])
+                sample_timestamp_ns = int(sample_data["timestamp"] * 1e3)  # TODO: int(closest_sample["timestamp"] * 1e3)
 
                 camera_data["sensor_index"] += [sample_data["channel"]]
                 camera_data["sample_index"] += [sample_timestamp_ns_to_sample_index[sample_timestamp_ns]]
@@ -233,11 +235,11 @@ class MANTruckScenesDataLoader(BaseDataLoader):
     def load_transforms(self):
         tm = TemporalTransformManager()
 
-        # Add static transforms. Loop over all 16 sensors (4 cameras, 6 lidar, 6 radar)
+        # Add static transforms. Loop over all 12 sensors (6 cameras, 1 lidar, 5 radar)
         for sample_data_token in self.first_sample["data"].values():
-            sample_data = self.truck_scenes.get("sample_data", sample_data_token)
+            sample_data = self.nu_scenes.get("sample_data", sample_data_token)
             sensor_name = sample_data["channel"]
-            calibrated_sensor = self.truck_scenes.get("calibrated_sensor", sample_data["calibrated_sensor_token"])
+            calibrated_sensor = self.nu_scenes.get("calibrated_sensor", sample_data["calibrated_sensor_token"])
             p = np.array(calibrated_sensor["translation"])  # xyz
             q = np.array(calibrated_sensor["rotation"])  # wxyz quaternion
             tm.add_transform(sensor_name, EGO_FRAME_NAME, StaticTransform(get_transform_from_pq(p, q)))
@@ -246,10 +248,12 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         time = list()
         pqs = list()
 
-        # Aim to retrieve 22 seconds (from -1 to +21) at 1000 samples per second (in practice, only about 1/10 of these will exist)
-        for t in [-1.0e6 + self.first_sample["timestamp"] + 0.001e6 * i for i in range(22000)]:
-            ego_pose = self.truck_scenes.getclosest("ego_pose", t)
+        # Order the list nu_scenes.ego_pose by "timestamp" to be safe
+        ego_poses = sorted(self.nu_scenes.ego_pose, key=lambda x: x["timestamp"])
+        for ego_pose in ego_poses:
             timestamp = ego_pose["timestamp"] * 1e3  # From us to ns for compatibility with other datasets
+            if timestamp < self.first_sample["timestamp"] * 1e3 - 0.1e9 or self.first_sample["timestamp"] * 1e3 + 20.1e9 < timestamp:  # A scene in nuScenes lasts 20 seconds.
+                continue  # Prevent fetching ego poses from other sequences. TODO: find a smarter way to scan through ego poses?
             if timestamp not in time:  # Do not add the same transform more than once
                 p = np.array(ego_pose["translation"])  # xyz
                 q = np.array(ego_pose["rotation"])  # wxyz quaternion

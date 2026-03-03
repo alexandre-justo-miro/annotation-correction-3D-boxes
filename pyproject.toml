@@ -19,6 +19,7 @@ requires-python = "~=3.9"
 dependencies = [
     "matplotlib~=3.9",  # 3.9.4 is the last one compatible with Python 3.9
     "numpy",  # numpy v2 not fixed due to that some packages (out of our package) still require v1
+    "nuscenes-devkit~=1.2",  # 1.2 is the first version compatible with Python 3.9 and 3.12
     "pandas~=2.3",
     "pillow>=11.3,<13",  # 11.3.0 is the last one compatible with Python 3.9
     "pyarrow~=21.0",

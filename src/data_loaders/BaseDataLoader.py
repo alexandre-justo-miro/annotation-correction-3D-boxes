@@ -121,3 +121,4 @@ class BaseDataLoader(ABC):
 
     def is_argoverse2_dataset(self): return False
     def is_man_truckscenes_dataset(self): return False
+    def is_nuscenes_dataset(self): return False
