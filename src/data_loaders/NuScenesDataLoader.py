@@ -2,12 +2,10 @@ from constants import EGO_FRAME_NAME, GLOBAL_FRAME_NAME
 from data_loaders.BaseDataLoader import BaseDataLoader
 import numpy as np
 from nuscenes import NuScenes
-from nuscenes.utils.data_classes import LidarPointCloud
 import os.path
 import pandas as pd
 from PIL import Image
 from pytransform3d.transform_manager import NumpyTimeseriesTransform, StaticTransform, TemporalTransformManager
-from tqdm import tqdm
 from transformation_utils import get_pq, get_transform_from_pq, transform_point_cloud
 
 
@@ -41,6 +39,10 @@ class NuScenesDataLoader(BaseDataLoader):
         self.sensor_data_reference_frame = EGO_FRAME_NAME  # Lidar comes in sensor frame, but we will transform it to ego while loading.
         self.sensor_data_ego_motion_compensated = True  # From the nuScenes paper: "We perform motion compensation using the localization algorithm described below."
         self.annotation_frequency_hz = 2.0
+        self.lidar_frequency_hz = 20.0
+        self.lidar_scan_period = 1.0 / self.lidar_frequency_hz
+        self.lidar_rotates_clockwise = True
+        self.lidar_scan_start_angle = - np.pi
 
         # Whether to load sensor data only from key frames or from all available frames
         self.only_load_key_frames = only_load_key_frames
@@ -81,6 +83,65 @@ class NuScenesDataLoader(BaseDataLoader):
                 first_camera_tokens.append(sample_data_token)
 
         return first_lidar_tokens, first_radar_tokens, first_camera_tokens
+
+    def _load_lidar_image_with_timestamps_per_point(
+            self,
+            bin_path: str,
+            W: int = 1080,  # columns (azimuth bins)
+            H: int = 32,  # rows (HDL-32E rings)
+    ):
+        """
+        Load a nuScenes *.pcd.bin (x,y,z,intensity,ring), build a range view, and compute per‑point relative timestamps
+        t_rel in seconds (<=0, 0 = end-of-sweep) artificially, as the HDL-32E lidar in nuScenes does not provide them.
+
+        Returns:
+            xyz           : (N, 3) lidar points in sensor frame of reference
+            t_rel         : (N,) float32 relative timestamp in (-T, 0]
+            intensity_img : (H, W) float32 sparse intensity image (NaN where empty)
+            range_img     : (H, W) float32 sparse range image (NaN where empty)
+            time_img      : (H, W) float32 sparse time image (NaN where empty)
+        """
+        # Load data from nuScenes .bin file
+        scan = np.fromfile(bin_path, dtype=np.float32)
+        x, y, z, intensity, ring = scan.reshape((-1, 5)).T
+        xyz = scan.reshape((-1, 5))[:, :3]  # (N, 3), in sensor frame of reference
+
+        # Calculate range
+        rng = np.sqrt(x * x + y * y + z * z)  # [m], [0, +inf)
+
+        # Calculate column indices via azimuth.
+        az = np.arctan2(y, x)                        # [rad], [-pi, pi).
+        az_wrapped = (az + 2 * np.pi) % (2 * np.pi)  # [rad], [0, 2pi)
+        assert np.min(az) >= self.lidar_scan_start_angle
+        # We make the first column start where the scan starts, and the last one where the scan ends.
+        cols = (W * (az - self.lidar_scan_start_angle) / (2 * np.pi)).astype(np.int32)
+        assert (not (np.min(cols) < 0)) and (not (np.max(cols) > W - 1)), \
+            f"Column indices out of bounds: {np.min(cols)} to {np.max(cols)} (expected 0 to {W - 1})"
+
+        # Fetch row indices from ring
+        rows = ring.astype(np.int32)
+        assert not (np.min(rows) < 0) and not (np.max(rows) > H - 1), \
+            f"Ring indices out of bounds: {np.min(rows)} to {np.max(rows)} (expected 0 to {H - 1})"
+
+        # We use the fact that the LiDAR in nuScenes scans uniformly in clockwise direction from the BEV perspective
+        # (see https://github.com/nutonomy/nuscenes-devkit/issues/239), and that, from the nuScenes paper, "the
+        # timestamp of the lidar scan is the time when the full rotation of the current lidar frame is achieved."
+        # (Note: the lidar starts on the left side, i.e. - pi w.r.t. to its axis, which points to the right.)
+        s = -1.0 if self.lidar_rotates_clockwise else 1.0  # Rotation sign, clockwise vs. CCW
+        frac = ((s * (az_wrapped - self.lidar_scan_start_angle)) % (2 * np.pi)) / (2 * np.pi)  # [-], [0, 1)
+        t_rel = frac * self.lidar_scan_period - self.lidar_scan_period                         # [s], (-T, 0]
+
+        # Sparse images (by last-writer wins if collisions)
+        intensity_img = np.full((H, W), np.nan, dtype=np.float32)
+        range_img = np.full((H, W), np.nan, dtype=np.float32)
+        time_img = np.full((H, W), np.nan, dtype=np.float32)
+
+        # Cast vectors to matrix
+        intensity_img[rows, cols] = intensity
+        range_img[rows, cols] = rng
+        time_img[rows, cols] = t_rel
+
+        return xyz, t_rel.astype(np.float32), intensity_img, range_img, time_img
 
     def load_annotations(self, file_suffix: str = ""):
 
@@ -159,10 +220,10 @@ class NuScenesDataLoader(BaseDataLoader):
                 if self.only_load_key_frames and not is_key_frame:
                     continue
 
-                # Load point cloud
+                # Load point cloud. We use our own function because the one in nuscenes-devkit does not load the ring
+                # index and does not reconstruct timestamp per lidar point.
                 data_file_path = os.path.join(self.nu_scenes.dataroot, sample_data["filename"])
-                point_cloud = LidarPointCloud.from_file(str(data_file_path))
-                points = point_cloud.points.T  # shape after transposing: [N, 4]
+                points, dt, _, _, _ = self._load_lidar_image_with_timestamps_per_point(str(data_file_path))
 
                 # Transform all points from sensor to ego frame of reference
                 transform_point_cloud(points, self.transforms.get_transform(sensor_name, EGO_FRAME_NAME))
@@ -180,8 +241,7 @@ class NuScenesDataLoader(BaseDataLoader):
                 sensor_data["X"] += x_list
                 sensor_data["Y"] += points[:, 1].tolist()
                 sensor_data["Z"] += points[:, 2].tolist()
-                # Create per-point timestamps artificially, as the lidar in nuScenes does not provide them. TODO: Find out the order of points and how the lidar spins
-                sensor_data["deltaT"] += np.linspace(0.0, 1.0/20.0, len(x_list)).tolist()  # nuScenes lidar spins at 20 Hz
+                sensor_data["deltaT"] += dt.tolist()
                 number_points_in_sample = len(x_list)
                 sensor_data["sensor_modality"] += [sample_data["sensor_modality"]] * number_points_in_sample
                 sensor_data["sensor_index"] += [sensor_name] * number_points_in_sample
