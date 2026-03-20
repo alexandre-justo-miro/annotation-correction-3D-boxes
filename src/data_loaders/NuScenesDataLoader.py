@@ -20,7 +20,6 @@ class NuScenesDataLoader(BaseDataLoader):
             need_sensor_data: bool = True,
             verbose: bool = True,
             dataset_version: str = "v1.0-mini",
-            apply_ego_motion_compensation: bool = True,
             only_load_key_frames: bool = True):
         super().__init__(path_to_sequence, need_transforms, need_annotations, need_sensor_data, verbose)
 
@@ -40,7 +39,7 @@ class NuScenesDataLoader(BaseDataLoader):
         # Some traits of this dataset
         self.annotations_reference_frame = GLOBAL_FRAME_NAME
         self.sensor_data_reference_frame = EGO_FRAME_NAME  # Lidar comes in sensor frame, but we will transform it to ego while loading.
-        self.sensor_data_ego_motion_compensated = apply_ego_motion_compensation
+        self.sensor_data_ego_motion_compensated = True  # From the nuScenes paper: "We perform motion compensation using the localization algorithm described below."
         self.annotation_frequency_hz = 2.0
 
         # Whether to load sensor data only from key frames or from all available frames
@@ -139,16 +138,11 @@ class NuScenesDataLoader(BaseDataLoader):
         sensor_data = self.create_empty_sensor_data_dictionary()
         camera_data = self.create_empty_camera_data_dictionary()
 
-        # Created to not need to query get_transform_at_time multiple times for the same timestamp. This will save time,
-        # especially when needing to interpolate
-        transform_map = dict()
-
         # Map to keep track of sample indexes
         sample_timestamp_ns_to_sample_index = dict()
 
         # Loop over lidars
         if self.verbose:
-            print(f"INFO: {'' if self.sensor_data_ego_motion_compensated else 'not '}applying ego motion compensation to the lidar point clouds.")
             print(f"INFO: loading sensor data from key frames {'only' if self.only_load_key_frames else 'and sweeps'}.")
         for first_lidar_token in self.first_lidar_tokens:
 
@@ -180,21 +174,6 @@ class NuScenesDataLoader(BaseDataLoader):
                 # Add sample timestamp and index. This assumes that the lidar samples are in chronological order.
                 if closest_sample_timestamp_ns not in sample_timestamp_ns_to_sample_index:
                     sample_timestamp_ns_to_sample_index[closest_sample_timestamp_ns] = len(sample_timestamp_ns_to_sample_index)
-
-                # Do ego motion compensation if requested
-                if False: #self.sensor_data_ego_motion_compensated: TODO: isn't the nuScenes data already ego motion compensated?
-                    ego_to_global_aggregated = list()
-                    iterator = point_cloud.timestamps.flatten().tolist()
-                    if self.verbose: iterator = tqdm(iterator, desc=f"Applying ego motion compensation for a sample of {sensor_name}...")
-                    for t in iterator:
-                        point_timestamp_ns = int(t * 1e3)
-                        if point_timestamp_ns not in transform_map:
-                            transform_map[point_timestamp_ns] = self.transforms.get_transform_at_time(EGO_FRAME_NAME, GLOBAL_FRAME_NAME, point_timestamp_ns)
-                        ego_to_global_aggregated.append(transform_map[point_timestamp_ns])
-                    ego_to_global_aggregated = np.array(ego_to_global_aggregated)  # [N, 4, 4]
-                    points_homogeneous = np.vstack((points[:, :3].T, np.ones((1, np.shape(points)[0]))))  # [4, N]
-                    points = np.einsum("ijk,ki->ij", ego_to_global_aggregated, points_homogeneous)[:, :3]  # [N, 3]
-                    transform_point_cloud(points, self.transforms.get_transform_at_time(GLOBAL_FRAME_NAME, EGO_FRAME_NAME, closest_sample_timestamp_ns))
 
                 # Store data
                 x_list = points[:, 0].tolist()
