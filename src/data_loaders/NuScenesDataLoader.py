@@ -46,10 +46,20 @@ class NuScenesDataLoader(BaseDataLoader):
         # Whether to load sensor data only from key frames or from all available frames
         self.only_load_key_frames = only_load_key_frames
 
-        # Categories that are static or very slow and will therefore not be corrected
+        # Categories that are static or very slow and will therefore not be corrected. Source: https://www.nuscenes.org/nuscenes#data-annotation
         self.categories_no_correction = (
-            "debris", "pushable_pullable", "bicycle_rack", "barrier", "construction", "adult", "child",
-            "construction_worker", "police_officer", "personal_mobility", "stroller", "trafficcone"
+            "human.pedestrian.adult",
+            "human.pedestrian.child",
+            "human.pedestrian.construction_worker",
+            "human.pedestrian.personal_mobility",
+            "human.pedestrian.police_officer",
+            "human.pedestrian.stroller",
+            "human.pedestrian.wheelchair",
+            "movable_object.barrier",
+            "movable_object.debris",
+            "movable_object.pushable_pullable",
+            "movable_object.trafficcone",
+            "static_object.bicycle_rack",
         )
 
         self.load_all()
