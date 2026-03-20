@@ -47,12 +47,9 @@ class NuScenesDataLoader(BaseDataLoader):
         self.only_load_key_frames = only_load_key_frames
 
         # Categories that are static or very slow and will therefore not be corrected
-        self.categories_no_correction = (  # TODO check which categories actually exist in nuScenes
-            "static_object.traffic_sign", "static_object.bicycle_rack",
-            "movable_object.debris", "movable_object.trafficcone", "movable_object.pushable_pullable", "movable_object.barrier",
-            "vehicle.ego_trailer", "vehicle.trailer", "vehicle.construction",
-            "human.pedestrian.adult", "human.pedestrian.construction_worker", "human.pedestrian.child",
-            "human.pedestrian.stroller", "human.pedestrian.police_officer",
+        self.categories_no_correction = (
+            "debris", "pushable_pullable", "bicycle_rack", "barrier", "construction", "adult", "child",
+            "construction_worker", "police_officer", "personal_mobility", "stroller", "trafficcone"
         )
 
         self.load_all()
