@@ -76,7 +76,7 @@ See all possible options by running
 ```
 
 ## Custom dataset
-To use a custom dataset, implement a new class inheriting from `BaseDataLoader`, and implement the required abstract methods, such as those for loading sensor data, transforms, and annotations and putting them in the common format that our code expects. See `data_loaders/Argoverse2DataLoader.py` or `data_loaders/MANTruckScenesDataLoader.py` as examples for how to do this.
+To use a custom dataset, implement a new class inheriting from `BaseDataLoader`, and implement the required abstract methods, such as those for loading sensor data, transforms, and annotations and putting them in the common format that our code expects. See `data_loaders/Argoverse2DataLoader.py`, `data_loaders/MANTruckScenesDataLoader.py`, or `data_loaders/NuScenesDataLoader.py` as examples for how to do this.
 
 ## Contributing
 Users of the code are welcome to contribute and create pull requests or open issues in GitHub if need be.
