@@ -169,6 +169,7 @@ def calculate_metrics(data_loader):
 def get_draw_position_offset(dataset_name):
     if "argoverse2" == dataset_name: return -0.25
     elif "man-truckscenes" == dataset_name: return 0.0
+    elif "nuscenes" == dataset_name: return 0.25
     else: raise NotImplementedError
 
 
