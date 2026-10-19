@@ -21,6 +21,7 @@ dependencies = [
     "numpy",  # numpy v2 not fixed due to that some packages (out of our package) still require v1
     "pandas~=2.3",
     "pillow>=11.3,<13",  # 11.3.0 is the last one compatible with Python 3.9
+    "psutil",
     "pyarrow~=21.0",
     "pymoo~=0.6",
     "pytransform3d~=3.14",

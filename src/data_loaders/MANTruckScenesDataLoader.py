@@ -19,7 +19,7 @@ class MANTruckScenesDataLoader(BaseDataLoader):
             need_annotations: bool = True,
             need_sensor_data: bool = True,
             verbose: bool = True,
-            dataset_version: str = "v1.0-mini",
+            dataset_version: str = "v1.0-trainval",
             apply_ego_motion_compensation: bool = True,
             only_load_key_frames: bool = True):
         super().__init__(path_to_sequence, need_transforms, need_annotations, need_sensor_data, verbose)
@@ -27,7 +27,7 @@ class MANTruckScenesDataLoader(BaseDataLoader):
         root_directory = os.path.dirname(self.path_to_sequence)
         scene_name = os.path.basename(self.path_to_sequence)
 
-        self.truck_scenes = TruckScenes(dataset_version, root_directory, False)
+        self.truck_scenes = TruckScenes(dataset_version, root_directory, verbose)
         self.scene = next(s for s in self.truck_scenes.scene if s["name"] == scene_name)
         self.first_sample_token = self.scene["first_sample_token"]
         self.first_sample = self.truck_scenes.get("sample", self.first_sample_token)
